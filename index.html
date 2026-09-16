@@ -170,7 +170,21 @@
             transform: translateY(-2px);
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
         }
-        .btn-google .material-icons-round { color: #4285F4; }
+        .google-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            font-family: Arial, sans-serif;
+            font-size: 21px;
+            font-weight: 700;
+            line-height: 1;
+            background: conic-gradient(from -45deg, #4285F4 0deg 90deg, #34A853 90deg 180deg, #FBBC05 180deg 270deg, #EA4335 270deg 360deg);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
         .auth-divider {
             display: flex; align-items: center; gap: 12px;
@@ -242,8 +256,10 @@
             width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
             display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: var(--font-display); font-size: 20px;
             cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: var(--transition-bounce);
+            overflow: hidden; position: relative;
         }
         .user-avatar:hover { transform: scale(1.05); box-shadow: 0 8px 24px rgba(168, 85, 247, 0.4); }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; flex-shrink: 0; pointer-events: none; }
 
         .content-container { padding: 20px 60px 80px; max-width: 1600px; margin: 0 auto; width: 100%; flex-grow: 1; }
 
@@ -499,6 +515,177 @@
             .app-icon-wrapper .material-icons-round { font-size: 32px; }
             .auth-box { padding: 32px 16px; }
         }
+
+        /* ==========================================================================
+           PORTRAIT MOBILE OPTIMIZATION (appended overrides — desktop untouched)
+           ========================================================================== */
+        @media (orientation: portrait) and (max-width: 640px) {
+            /* ---- Auth pages ---- */
+            .auth-container { padding: 12px; align-items: flex-start; padding-top: 20px; padding-bottom: 40px; }
+            .auth-box { padding: 26px 18px; border-radius: var(--radius-md); max-width: 100%; }
+            .auth-box::before { filter: blur(8px); }
+            .auth-header { margin-bottom: 22px; }
+            .auth-header h1 { font-size: 25px; }
+            .auth-header p { font-size: 13px; }
+            .form-group { margin-bottom: 14px; }
+            .form-control { padding: 13px 14px; font-size: 15px; border-radius: var(--radius-sm); }
+            .form-label { font-size: 13px; margin-bottom: 6px; }
+            .btn { padding: 13px 18px; font-size: 15px; }
+            .btn-sm { padding: 8px 14px; font-size: 13px; min-height: 32px; }
+            .auth-divider { margin: 14px 0; font-size: 12px; }
+
+            /* ---- Modal zoom-out for portrait ---- */
+            .modal { padding: 10px; align-items: flex-start; padding-top: 26px; padding-bottom: 26px; }
+            .modal-content {
+                padding: 22px 18px;
+                border-radius: var(--radius-md);
+                max-width: 100%;
+                max-height: 88vh;
+                transform: translateY(20px) scale(0.94);
+                transform-origin: top center;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .modal.show .modal-content { transform: translateY(0) scale(0.94); }
+            .modal-title { font-size: 19px; }
+            .modal-header { margin-bottom: 16px; }
+            .modal-close { width: 34px; height: 34px; }
+            .modal-close .material-icons-round { font-size: 20px; }
+            .modal-footer { margin-top: 20px; padding-top: 16px; gap: 10px; flex-wrap: wrap; }
+            .modal-footer .btn { flex: 1 1 auto; min-width: 110px; }
+            .bg-surface-variant { padding: 14px; margin-bottom: 14px; }
+
+            /* ---- Dashboard chrome ---- */
+            .top-bar { padding: 10px 12px; }
+            .menu-toggle, .notification-button, .user-avatar { width: 42px; height: 42px; }
+            .menu-toggle .material-icons-round, .notification-button .material-icons-round { font-size: 21px; }
+            .user-avatar { font-size: 16px; }
+            .header-actions { gap: 10px; }
+            .notification-badge { min-width: 17px; height: 17px; font-size: 10px; }
+
+            .content-container { padding: 14px 14px 90px; }
+
+            /* ---- Greeting ---- */
+            .greeting-section { margin-bottom: 22px; gap: 14px; flex-direction: column; align-items: stretch; }
+            .greeting-title { font-size: 26px; letter-spacing: -0.4px; }
+            .greeting-subtitle { font-size: 13px; }
+            .welcome-financials { padding: 16px 18px; border-radius: var(--radius-md); text-align: left; }
+            .welcome-fin-label { font-size: 10px; letter-spacing: 1px; margin-bottom: 6px; }
+            .welcome-fin-amount { font-size: 30px; margin-bottom: 12px; }
+
+            /* ---- Sections & app grid ---- */
+            .section-header { font-size: 17px; margin-bottom: 16px; gap: 8px; }
+            .app-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 18px 10px; margin-bottom: 32px; }
+            .app-item { gap: 8px; }
+            .app-icon-wrapper { width: 62px; height: 62px; border-radius: var(--radius-lg); }
+            .app-icon-wrapper .material-icons-round { font-size: 26px; }
+            .app-label { font-size: 11.5px; line-height: 1.25; }
+
+            /* ---- Trust card ---- */
+            .trust-score-card { padding: 14px 16px; border-radius: var(--radius-md); margin-top: 20px; }
+            .trust-title { font-size: 14px; }
+            .trust-status { font-size: 13px; }
+            .trust-footer { font-size: 11.5px; }
+
+            /* ---- Tables ---- */
+            .table-container { margin-left: -14px; margin-right: -14px; border-radius: 0; border-left: none; border-right: none; }
+            th { padding: 12px 14px; font-size: 12px; }
+            td { padding: 12px 14px; font-size: 13px; }
+
+            /* ---- Transactions ---- */
+            .transactions-list { gap: 10px; }
+            .transaction-item { padding: 14px 16px; border-radius: var(--radius-md); }
+            .transaction-type { font-size: 14px; }
+            .transaction-amount { font-size: 15px; }
+            .transaction-details { font-size: 12px; }
+
+            /* ---- Filters ---- */
+            .filter-controls { gap: 8px; margin-bottom: 16px; }
+            .filter-btn { padding: 8px 13px; font-size: 12px; }
+
+            /* ---- Keypad ---- */
+            .keypad-container { gap: 10px; max-width: 250px; }
+            .keypad-btn { padding: 14px; font-size: 19px; border-radius: var(--radius-sm); }
+            .keypad-btn.verify { font-size: 14px; padding: 14px 8px; }
+            .pin-display { gap: 14px; margin: 20px 0; }
+            .pin-dot { width: 13px; height: 13px; }
+
+            /* ---- Payment methods ---- */
+            .payment-method-btn { padding: 16px 10px; gap: 8px; border-radius: var(--radius-md); }
+            .payment-method-btn .material-icons-round { font-size: 30px; }
+            .payment-method-btn span:not(.material-icons-round) { font-size: 13px; }
+
+            /* ---- QR ---- */
+            .qr-container { padding: 12px; }
+            .qr-container img { width: 170px; height: 170px; }
+
+            /* ---- Order details grid ---- */
+            .order-details-grid { gap: 10px; margin-bottom: 16px; }
+            .detail-box { padding: 12px; }
+            .detail-label { font-size: 11px; }
+            .detail-value { font-size: 13.5px; }
+            .redeem-code-display { padding: 14px; }
+            .redeem-code-display span#viewOrderCodeValue { font-size: 18px; letter-spacing: 3px; }
+
+            /* ---- Stars ---- */
+            .star-rating { gap: 8px; margin: 18px 0; }
+            .star-rating .star { font-size: 36px; }
+
+            /* ---- Dropdown & notification panel ---- */
+            .dropdown-menu { top: 60px; right: 10px; left: 10px; width: auto; padding: 16px; border-radius: var(--radius-md); }
+            .dropdown-header .user-avatar { width: 54px; height: 54px; font-size: 22px; }
+            .dropdown-name { font-size: 16px; }
+            .financials-amount { font-size: 24px; }
+            .dropdown-item { padding: 12px 16px; margin: 0 -16px; font-size: 14px; }
+            .dropdown-menu hr { margin: 12px -16px; }
+
+            .notification-panel { top: 60px; left: 10px; right: 10px; width: auto; max-height: 70vh; border-radius: var(--radius-md); }
+            .notification-panel-header { padding: 14px 16px; }
+            .notification-panel-title { font-size: 17px; }
+            .notification-panel-action { padding: 6px 12px; font-size: 12px; }
+            .notification-panel-body { padding: 12px; gap: 10px; }
+            .notification-item { padding: 12px; gap: 12px; }
+            .notification-item-icon { width: 38px; height: 38px; }
+            .notification-item-icon .material-icons-round { font-size: 20px; }
+            .notification-item-title { font-size: 14px; }
+            .notification-item-message { font-size: 12.5px; }
+            .notification-item-meta { font-size: 11px; }
+
+            /* ---- Toast ---- */
+            .toast { padding: 12px 16px; font-size: 13.5px; border-radius: var(--radius-sm); margin-bottom: 8px; }
+            #toastContainer { bottom: 16px; padding: 0 10px; }
+
+            /* ---- Loading overlay ---- */
+            .loading-card { padding: 28px 22px; border-radius: var(--radius-lg); max-width: 320px; }
+            .pulse-dot { width: 44px; height: 44px; border-width: 3px; }
+            .loading-step { font-size: 13.5px; margin-bottom: 12px; }
+
+            /* ---- Search results ---- */
+            .search-results { max-height: 180px; }
+            .search-result-item { padding: 12px; gap: 12px; }
+            .user-avatar-small { width: 32px; height: 32px; }
+
+            /* ---- Admin console ---- */
+            .sidebar-brand span { font-size: 18px; }
+            .sidebar-brand .google-play-logo { width: 30px; height: 30px; }
+        }
+
+        @media (orientation: portrait) and (max-width: 380px) {
+            .app-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 14px 8px; }
+            .app-icon-wrapper { width: 54px; height: 54px; }
+            .app-icon-wrapper .material-icons-round { font-size: 22px; }
+            .app-label { font-size: 10.5px; }
+            .greeting-title { font-size: 23px; }
+            .modal-content { padding: 20px 14px; }
+            .keypad-container { max-width: 220px; gap: 8px; }
+            .keypad-btn { padding: 12px; font-size: 17px; }
+        }
+
+        /* ---- Short landscape / very low height ---- */
+        @media (max-height: 520px) {
+            .modal { align-items: flex-start; padding: 10px; }
+            .modal-content { max-height: 94vh; padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -701,7 +888,7 @@
             <div class="auth-divider"><span>OR</span></div>
 
             <button type="button" class="btn btn-google btn-block" id="googleSignInBtn" onclick="googleSignIn()">
-                <span class="material-icons-round">account_circle</span>
+                <span class="google-logo" aria-hidden="true">G</span>
                 Continue with Google
             </button>
             <p class="text-xs text-muted text-center mt-2">Google login works only after your PlayCode account has been linked.</p>
@@ -1386,7 +1573,7 @@
         let currentNotifications = [];
 
         // Google Auth state
-        let googleAuthInProgress = false;   // guards against onAuthStateChanged races during popup flows
+        let googleAuthInProgress = false;
         let googleAuthRestoreInProgress = false;
 
         const notificationIconMap = {
@@ -1421,6 +1608,57 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // ------------------------------------------------------------------
+        // AVATAR HELPERS — shows Google profile photo when linked, else initial
+        // Pure DOM swap, no layout thrash, no extra network calls beyond the img itself.
+        // ------------------------------------------------------------------
+        function applyUserAvatars(user) {
+            if (!user) return;
+            const initial = (user.fullName || 'U').charAt(0).toUpperCase();
+            const safeInitial = initial.replace(/[<>&"']/g, '');
+            const photo = user.googlePhotoURL || '';
+
+            // Top-bar avatar (id="userAvatar")
+            const topAvatar = document.getElementById('userAvatar');
+            if (topAvatar) {
+                if (photo) {
+                    // Avoid re-creating the <img> if the src hasn't changed (prevents flicker)
+                    const existingImg = topAvatar.querySelector('img');
+                    if (existingImg && existingImg.getAttribute('src') === photo) {
+                        // already correct — no DOM change
+                    } else {
+                        topAvatar.innerHTML = `<img src="${escapeHtml(photo)}" alt="" referrerpolicy="no-referrer" onerror="var p=this.parentElement;this.remove();if(p)p.textContent='${safeInitial}';">`;
+                    }
+                } else {
+                    if (topAvatar.querySelector('span#userInitial')) {
+                        topAvatar.querySelector('span#userInitial').textContent = safeInitial;
+                    } else {
+                        topAvatar.innerHTML = `<span id="userInitial">${safeInitial}</span>`;
+                    }
+                }
+            }
+
+            // Dropdown header avatar (via the #dropdownInitial span's parent)
+            const ddInitial = document.getElementById('dropdownInitial');
+            if (ddInitial && ddInitial.parentElement) {
+                const ddParent = ddInitial.parentElement;
+                if (photo) {
+                    const existingImg = ddParent.querySelector('img');
+                    if (existingImg && existingImg.getAttribute('src') === photo) {
+                        // already correct
+                    } else {
+                        ddParent.innerHTML = `<img src="${escapeHtml(photo)}" alt="" referrerpolicy="no-referrer" onerror="var p=this.parentElement;this.remove();if(p)p.textContent='${safeInitial}';">`;
+                    }
+                } else {
+                    if (ddParent.querySelector('span#dropdownInitial')) {
+                        ddParent.querySelector('span#dropdownInitial').textContent = safeInitial;
+                    } else {
+                        ddParent.innerHTML = `<span id="dropdownInitial">${safeInitial}</span>`;
+                    }
+                }
+            }
+        }
+
         function getNotificationMeta(iconType) {
             return notificationIconMap[iconType] || notificationIconMap.info;
         }
@@ -1447,35 +1685,26 @@
         // GOOGLE AUTH: CORE FUNCTIONS
         // ==========================================
         function initializeFirebaseAuth() {
-            // Ensure LOCAL persistence is used so Google sessions survive refresh/restart.
             auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
                 .catch((error) => { console.warn('Firebase Auth persistence setup failed:', error); });
 
             auth.onAuthStateChanged(async function(firebaseUser) {
-                // Ignore while an explicit popup (sign-in / link) is in progress
                 if (googleAuthInProgress) return;
+                if (!firebaseUser) return;
 
-                if (!firebaseUser) return; // No Google session -> stay on sign-in page
-
-                // If a user is already logged in via Account Number + SAR:
                 if (currentUser) {
-                    // If this Firebase session doesn't match the logged-in user's linked Google uid,
-                    // sign it out so refresh doesn't auto-restore the WRONG user.
                     if (!currentUser.googleUid || currentUser.googleUid !== firebaseUser.uid) {
                         try { await auth.signOut(); } catch (e) {}
                     }
                     return;
                 }
 
-                // Otherwise, attempt to auto-restore this PlayCode account via googleUid
                 await restoreGooglePlayCodeSession(firebaseUser);
             });
         }
 
         function findPlayCodeUserByGoogleUid(uid) {
             if (!uid) return Promise.resolve(null);
-            // Uses Firebase Realtime Database indexed query.
-            // Add ".indexOn": ["googleUid"] under users in your Realtime Database Rules for best performance.
             return database.ref('users')
                 .orderByChild('googleUid')
                 .equalTo(uid)
@@ -1484,15 +1713,12 @@
                     let found = null;
                     if (snapshot.exists()) {
                         snapshot.forEach(child => {
-                            if (!found) {
-                                found = child.val();
-                            }
+                            if (!found) found = child.val();
                         });
                     }
                     return found;
                 })
                 .catch(err => {
-                    // Fallback: scan client-side (in case the index is missing)
                     console.warn('Indexed googleUid query failed, falling back to scan:', err && err.message);
                     return database.ref('users').once('value').then(snap => {
                         let found = null;
@@ -1511,12 +1737,8 @@
             googleAuthRestoreInProgress = true;
             try {
                 const matchedUser = await findPlayCodeUserByGoogleUid(firebaseUser.uid);
-                // If the user already signed in while we were fetching, do not override
                 if (currentUser) return;
-                if (!matchedUser) {
-                    // No linked PlayCode account -> keep normal sign-in page visible
-                    return;
-                }
+                if (!matchedUser) return;
                 if (matchedUser.adminLocked) {
                     showAnimatedToast('Account is locked. Contact Admin.', 'error');
                     return;
@@ -1526,7 +1748,6 @@
                     showAnimatedToast(`Account locked. Try again in ${mins} min(s).`, 'error');
                     return;
                 }
-                // Update last login and login metadata (non-blocking)
                 database.ref('users/' + matchedUser.accNo).update({
                     lastLogin: new Date().toISOString(),
                     failedAttempts: 0,
@@ -1582,7 +1803,6 @@
             showAnimatedToast(message, 'error');
         }
 
-        // Sign in with Google from the Sign-in page
         async function googleSignIn() {
             if (googleAuthInProgress) return;
             googleAuthInProgress = true;
@@ -1620,6 +1840,10 @@
                 currentUser = matchedUser;
                 currentUser.googleUid = firebaseUser.uid;
                 currentUser.googleEmail = firebaseUser.email || '';
+                // make sure photo is available even if DB hasn't been updated yet
+                if (!currentUser.googlePhotoURL && firebaseUser.photoURL) {
+                    currentUser.googlePhotoURL = firebaseUser.photoURL;
+                }
 
                 showDashboard();
                 loadUserData();
@@ -1633,7 +1857,6 @@
             }
         }
 
-        // Link current PlayCode account to a Google account
         async function linkGoogleAccount() {
             if (!currentUser) {
                 showAnimatedToast('Please sign in to your PlayCode account first.', 'warning');
@@ -1651,11 +1874,9 @@
                 const firebaseUser = result && result.user;
                 if (!firebaseUser) throw new Error('No Google user returned');
 
-                // Prevent linking if this Google account is already linked to another PlayCode account
                 const existingUser = await findPlayCodeUserByGoogleUid(firebaseUser.uid);
                 if (existingUser && existingUser.accNo !== currentUser.accNo) {
                     showAnimatedToast('This Google account is already linked to another PlayCode account.', 'error');
-                    // Sign out the Google session because it cannot be used here
                     try { await auth.signOut(); } catch (e) {}
                     return;
                 }
@@ -1704,7 +1925,6 @@
             if (!confirm('Unlink Google account from this PlayCode account?')) return;
 
             try {
-                // Remove Google link fields only. Account Number + SAR remain intact.
                 await database.ref('users/' + currentUser.accNo).update({
                     googleUid: null,
                     googleEmail: null,
@@ -1719,11 +1939,8 @@
                 delete currentUser.googlePhotoURL;
                 delete currentUser.googleLinkedAt;
 
-                // Sign out the Firebase Google session if it belongs to this account
                 try {
                     if (auth.currentUser) {
-                        const fbUid = auth.currentUser.uid;
-                        // If we know the previous uid, or just sign out altogether
                         await auth.signOut();
                     }
                 } catch (e) {}
@@ -1736,9 +1953,6 @@
             }
         }
 
-        // Reconcile Firebase Auth session against the currently logged-in PlayCode user.
-        // If Firebase Auth has a DIFFERENT Google user than the account is linked to,
-        // sign it out to avoid auto-restoring the wrong user on refresh.
         function reconcileFirebaseAuthWithUser(user) {
             try {
                 const fbUser = auth.currentUser;
@@ -1750,11 +1964,13 @@
             } catch (e) {}
         }
 
-        // Update the Google status block inside the user dropdown
         function refreshGoogleStatusUI() {
             const container = document.getElementById('googleLinkSection');
             if (!container) return;
             if (!currentUser) { container.innerHTML = ''; return; }
+
+            // Keep avatar in sync (photo vs initial) — cheap DOM check, no flicker
+            applyUserAvatars(currentUser);
 
             if (currentUser.googleUid) {
                 const email = escapeHtml(currentUser.googleEmail || 'Linked');
@@ -1953,7 +2169,6 @@
                     currentUser = pendingDirectUser;
                     pendingDirectUser = null;
                     showDashboard(); loadUserData(); initRealTimeListeners();
-                    // Ensure Firebase Auth session matches this account (or is signed out)
                     reconcileFirebaseAuthWithUser(currentUser);
                     showAnimatedToast(`Verified! Welcome back, ${currentUser.fullName}!`, 'success');
                 } else {
@@ -2052,7 +2267,6 @@
                         });
                         currentUser = user; 
                         showDashboard(); loadUserData(); initRealTimeListeners(); 
-                        // Make sure a stale Firebase Auth session does not auto-restore a different user.
                         reconcileFirebaseAuthWithUser(currentUser);
                         showAnimatedToast(`Welcome back!`, 'success');
                     } else {
@@ -2134,11 +2348,11 @@
                 const firstName = currentUser.fullName.split(' ')[0];
                 document.getElementById('welcomeTitle').textContent = `Welcome, ${firstName}`; 
                 document.getElementById('welcomeBalanceDisplay').textContent = formatINR(currentUser.balance); 
-                document.getElementById('dropdownInitial').textContent = currentUser.fullName.charAt(0).toUpperCase(); 
                 document.getElementById('dropdownName').textContent = currentUser.fullName; 
                 document.getElementById('dropdownId').textContent = currentUser.accNo; 
                 document.getElementById('dropdownBalance').textContent = formatINR(currentUser.balance);
-                document.getElementById('userInitial').textContent = currentUser.fullName.charAt(0).toUpperCase();
+                // Avatar sync (Google photo or initial)
+                applyUserAvatars(currentUser);
                 refreshGoogleStatusUI();
             } 
         }
@@ -2156,12 +2370,17 @@
             if (event) event.stopPropagation(); 
             try {
                 if (realTimeListeners) { Object.keys(realTimeListeners).forEach(key => { if (typeof realTimeListeners[key] === 'function') realTimeListeners[key](); }); realTimeListeners = {}; }
-                // Sign out Firebase Auth (Google session) so refresh won't auto-restore.
-                // Note: this does NOT remove the googleUid link stored in the DB.
                 try { if (auth.currentUser) auth.signOut().catch(() => {}); } catch (e) {}
                 currentUser = null; currentAdmin = false; allUsersCache = {}; myOrdersCache = {};
                 const dropdown = document.getElementById('userDropdown'); if (dropdown) dropdown.classList.remove('show');
                 const gs = document.getElementById('googleLinkSection'); if (gs) gs.innerHTML = '';
+                // reset avatars back to default initial state
+                const topAvatar = document.getElementById('userAvatar');
+                if (topAvatar) topAvatar.innerHTML = '<span id="userInitial">U</span>';
+                const ddInit = document.getElementById('dropdownInitial');
+                if (ddInit) {} else {
+                    // dropdown initial span may have been replaced — leave it; dashboard is hidden anyway
+                }
                 ['dashboard', 'adminPanel', 'manageAccount', 'myOrdersSection', 'transactionHistorySection'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
                 showSignIn(); clearSignInForm(); showAnimatedToast('Signed out securely', 'success');
             } catch (error) { window.location.reload(); }
