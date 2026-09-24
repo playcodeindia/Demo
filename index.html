@@ -1707,7 +1707,7 @@
             <div class="modal-body">
                 <div style="display:flex; justify-content:center; margin-bottom:18px;"><span class="material-icons-round" style="font-size:56px;color:#4285F4;">admin_panel_settings</span></div>
                 <p class="text-muted text-center mb-4">Admin access now uses your Google account. The account must already have <strong style="color:var(--md-sys-color-on-surface);">role = admin</strong>.</p>
-                <button class="btn btn-google btn-block" onclick="adminGoogleLogin()"><span class="google-logo" aria-hidden="true">G</span> Continue with Google</button>
+                <button class="btn btn-google btn-block" id="adminGoogleLoginBtn" onclick="adminGoogleLogin()"><span class="google-logo" aria-hidden="true">G</span> Continue with Google</button>
             </div>
             <div class="modal-footer"><button class="btn btn-outlined" onclick="closeAdminModal()">Cancel</button></div>
         </div>
@@ -1802,7 +1802,7 @@
 
                 <div class="auth-divider"><span>NEW ACCOUNT</span></div>
 
-                <button type="button" class="btn btn-primary btn-block" onclick="startGoogleAccountCreation()">
+                <button type="button" class="btn btn-primary btn-block" id="createGoogleAccountStartBtn" onclick="startGoogleAccountCreation()">
                     <span class="google-logo" aria-hidden="true">G</span>
                     Create Account with Google
                 </button>
@@ -1825,7 +1825,7 @@
                 <div class="form-group"><label class="form-label">SAR Number</label><input id="linkSarNo" type="password" class="form-control" placeholder="Enter your SAR Number"></div>
                 <p class="text-xs text-muted">Your Google UID, email, name and profile picture above are taken directly from the verified Google account.</p>
             </div>
-            <div class="modal-footer"><button class="btn btn-outlined" onclick="cancelGoogleLinkFlow()">Cancel</button><button class="btn btn-primary" onclick="completeGoogleAccountLink()">Verify & Link</button></div>
+            <div class="modal-footer"><button class="btn btn-outlined" onclick="cancelGoogleLinkFlow()">Cancel</button><button class="btn btn-primary" id="completeGoogleLinkBtn" onclick="completeGoogleAccountLink()">Verify & Link</button></div>
         </div>
     </div>
 
@@ -1841,7 +1841,7 @@
                 <div class="form-group"><label class="form-label">Agent</label><select id="googleCreateAgentCode" class="form-control"><option value="">Select your agent</option><option value="6215">Agent 6215</option><option value="3773">Agent 3773</option><option value="1583">Agent 1583</option><option value="4848">Agent 4848</option></select></div>
                 <p class="text-xs text-muted">The Account Number is generated with the 2362XXXXXX format and checked for availability before creation.</p>
             </div>
-            <div class="modal-footer"><button class="btn btn-outlined" onclick="cancelGoogleCreateFlow()">Cancel</button><button class="btn btn-primary" onclick="completeGoogleAccountCreation()">Create Account</button></div>
+            <div class="modal-footer"><button class="btn btn-outlined" onclick="cancelGoogleCreateFlow()">Cancel</button><button class="btn btn-primary" id="completeGoogleCreateBtn" onclick="completeGoogleAccountCreation()">Create Account</button></div>
         </div>
     </div>
 
@@ -2661,6 +2661,38 @@
             setTimeout(() => { if (toast.parentElement) { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); } }, duration);
         }
 
+        // Button processing state: keep the loader until the operation finishes.
+        function setButtonLoading(buttonOrId, loading, text) {
+            const btn = typeof buttonOrId === 'string' ? document.getElementById(buttonOrId) : buttonOrId;
+            if (!btn) return;
+            if (loading) {
+                if (!btn.dataset.originalText) btn.dataset.originalText = btn.querySelector('.btn-text')?.textContent || btn.textContent.trim();
+                btn.disabled = true;
+                btn.classList.add('btn-loading');
+                const label = btn.querySelector('.btn-text');
+                if (label && text) label.textContent = text;
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('btn-loading');
+                const label = btn.querySelector('.btn-text');
+                if (label && btn.dataset.originalText) label.textContent = btn.dataset.originalText;
+            }
+        }
+
+        // Never leave the page visually blank after an unexpected client-side error.
+        window.addEventListener('error', function(event) {
+            console.error('PlaycodeX client error:', event.error || event.message);
+            const dashboard = document.getElementById('dashboard');
+            const signin = document.getElementById('signinPage');
+            if (dashboard && dashboard.style.display !== 'flex' && signin) signin.style.display = 'flex';
+        });
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('PlaycodeX promise error:', event.reason);
+            const dashboard = document.getElementById('dashboard');
+            const signin = document.getElementById('signinPage');
+            if (dashboard && dashboard.style.display !== 'flex' && signin) signin.style.display = 'flex';
+        });
+
         // ==========================================
         // GOOGLE AUTH: CORE FUNCTIONS
         // ==========================================
@@ -2743,6 +2775,12 @@
                 showAnimatedToast(`Welcome back, ${matchedUser.fullName}!`, 'success');
             } catch (e) {
                 console.warn('Google restore failed:', e);
+                currentUser = null;
+                const dashboard = document.getElementById('dashboard');
+                const signin = document.getElementById('signinPage');
+                if (dashboard) dashboard.style.display = 'none';
+                if (signin) signin.style.display = 'flex';
+                showAnimatedToast('Session restore failed. Please sign in again.', 'error');
             } finally {
                 googleAuthRestoreInProgress = false;
             }
@@ -2787,7 +2825,7 @@
             if (googleAuthInProgress) return;
             googleAuthInProgress = true;
             const btn = document.getElementById('googleSignInBtn');
-            if (btn) btn.classList.add('btn-loading');
+            setButtonLoading(btn, true, 'Processing…');
             try {
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 const result = await auth.signInWithPopup(googleProvider);
@@ -2836,7 +2874,7 @@
                 handleGoogleAuthError(error);
             } finally {
                 googleAuthInProgress = false;
-                if (btn) btn.classList.remove('btn-loading');
+                setButtonLoading(btn, false);
             }
         }
 
@@ -2989,7 +3027,7 @@
             if (googleAuthInProgress) return;
             googleAuthInProgress = true;
             const btn = document.getElementById('linkGoogleFromSignInBtn');
-            if (btn) btn.classList.add('btn-loading');
+            setButtonLoading(btn, true, 'Verifying…');
             try {
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 const result = await auth.signInWithPopup(googleProvider);
@@ -3001,15 +3039,17 @@
                 document.getElementById('linkSarNo').value = '';
                 showModal('googleLinkAccountModal');
             } catch (error) { handleGoogleAuthError(error); }
-            finally { googleAuthInProgress = false; if (btn) btn.classList.remove('btn-loading'); }
+            finally { googleAuthInProgress = false; setButtonLoading(btn, false); }
         }
 
         async function completeGoogleAccountLink() {
+            const btn = document.getElementById('completeGoogleLinkBtn');
             const firebaseUser = pendingGoogleAccount || auth.currentUser;
             const accNo = document.getElementById('linkAccountNo').value.trim();
             const sarNo = document.getElementById('linkSarNo').value.trim();
             if (!firebaseUser) return showAnimatedToast('Google verification expired. Start again.', 'error');
             if (!accNo || !sarNo) return showAnimatedToast('Enter Account Number and SAR Number.', 'error');
+            setButtonLoading(btn, true, 'Verifying…');
             try {
                 const existingGoogleLink = await findPlayCodeUserByGoogleUid(firebaseUser.uid);
                 if (existingGoogleLink && existingGoogleLink.accNo !== accNo) {
@@ -3033,6 +3073,7 @@
                 showAnimatedToast('Google account linked successfully. You can now use Continue with Google.', 'success');
                 await auth.signOut().catch(() => {});
             } catch (error) { showAnimatedToast(error.message || 'Failed to link account.', 'error'); }
+            finally { setButtonLoading(btn, false); }
         }
 
         function cancelGoogleLinkFlow() {
@@ -3053,6 +3094,8 @@
         async function startGoogleAccountCreation() {
             if (googleAuthInProgress) return;
             googleAuthInProgress = true;
+            const btn = document.getElementById('createGoogleAccountStartBtn');
+            setButtonLoading(btn, true, 'Verifying…');
             try {
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 const result = await auth.signInWithPopup(googleProvider);
@@ -3077,6 +3120,7 @@
         }
 
         async function completeGoogleAccountCreation() {
+            const btn = document.getElementById('completeGoogleCreateBtn');
             const firebaseUser = pendingGoogleAccount || auth.currentUser;
             const accNo = document.getElementById('generatedGoogleAccNo').value.trim();
             const sarNo = document.getElementById('googleCreateSarNo').value.trim();
@@ -3109,6 +3153,7 @@
                 showDashboard(); loadUserData(); initRealTimeListeners();
                 showAnimatedToast(`Account created successfully: ${accNo}`, 'success');
             } catch (error) { showAnimatedToast(error.message || 'Account creation failed.', 'error'); }
+            finally { googleAuthInProgress = false; setButtonLoading(btn, false); }
         }
 
         function cancelGoogleCreateFlow() {
@@ -3330,12 +3375,21 @@
         function clearSignUpForm() { ['accNo', 'sarNo', 'fullName', 'agentCode', 'pin'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ''; }); }
         function clearSignInForm() { document.getElementById('loginAccNo').value = ''; document.getElementById('loginSar').value = ''; }
         
-        function showDashboard() { 
-            document.getElementById('signinPage').style.display = 'none'; document.getElementById('dashboard').style.display = 'flex'; 
-            document.getElementById('myOrdersSection').style.display = 'none'; document.getElementById('transactionHistorySection').style.display = 'none'; document.getElementById('manageAccount').style.display = 'block'; 
-            loadUserNotifications(false);
-            refreshGoogleStatusUI();
-            window.scrollTo(0, 0); 
+        function showDashboard() {
+            const signin = document.getElementById('signinPage');
+            const dashboard = document.getElementById('dashboard');
+            if (!dashboard) throw new Error('Dashboard container is missing.');
+            if (signin) signin.style.display = 'none';
+            dashboard.style.display = 'flex';
+            const orders = document.getElementById('myOrdersSection');
+            const history = document.getElementById('transactionHistorySection');
+            const manage = document.getElementById('manageAccount');
+            if (orders) orders.style.display = 'none';
+            if (history) history.style.display = 'none';
+            if (manage) manage.style.display = 'block';
+            try { loadUserNotifications(false); } catch (e) { console.warn('Notification init failed:', e); }
+            try { refreshGoogleStatusUI(); } catch (e) { console.warn('Google UI refresh failed:', e); }
+            window.scrollTo(0, 0);
         }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
         function showManageAccount() { document.getElementById('myOrdersSection').style.display = 'none'; document.getElementById('transactionHistorySection').style.display = 'none'; document.getElementById('manageAccount').style.display = 'block'; loadUserNotifications(false); toggleUserMenu(); }
@@ -3690,6 +3744,8 @@
         async function adminGoogleLogin() {
             if (googleAuthInProgress) return;
             googleAuthInProgress = true;
+            const btn = document.getElementById('adminGoogleLoginBtn');
+            setButtonLoading(btn, true, 'Verifying…');
             try {
                 await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 const result = await auth.signInWithPopup(googleProvider);
@@ -3709,7 +3765,7 @@
                 loadAllOrders();
                 showAnimatedToast('Admin Access Granted', 'success');
             } catch (error) { handleGoogleAuthError(error); }
-            finally { googleAuthInProgress = false; }
+            finally { googleAuthInProgress = false; setButtonLoading(btn, false); }
         }
         function logoutAdmin() { currentAdmin = false; document.getElementById('adminPanel').style.display = 'none'; showSignIn(); clearSignInForm(); showAnimatedToast('Admin session ended', 'info'); }
         function showAdminPanel() { document.getElementById('signinPage').style.display = 'none'; document.getElementById('adminPanel').style.display = 'flex'; window.scrollTo(0, 0); }
@@ -3802,4 +3858,3 @@
     </script>
 </body>
 </html>
-
