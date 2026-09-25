@@ -3430,6 +3430,9 @@ let interestMatrix = {};
 
 /* Flag: has Firebase responded yet? */
 let interestRatesLoaded = false;
+let interestRatesLoadPromise = null;
+let interestRatesLoadResolve = null;
+let interestRatesLoadReject = null;
 
 let activeUser = null;
 let globalProcessingFee = 249;
@@ -3547,21 +3550,47 @@ const Util = {
     validatePhone: (phone) => /^[6-9]\d{9}$/.test(String(phone).trim()),
 
     calcEMI: (principal, annualRate, months) => {
-        if (!principal || principal <= 0 || !months || months <= 0) {
+        principal = Number(principal);
+        annualRate = Number(annualRate);
+        months = Number(months);
+
+        if (!Number.isFinite(principal) || principal <= 0 ||
+            !Number.isFinite(months) || months <= 0) {
             return { emi: 0, total: 0, interest: 0 };
         }
-        if (!annualRate || annualRate <= 0) {
-            const emi = principal / months;
-            return { emi: Math.round(emi), total: Math.round(principal), interest: 0 };
+
+        if (!Number.isFinite(annualRate) || annualRate < 0) {
+            return { emi: 0, total: 0, interest: 0 };
         }
+
+        if (annualRate === 0) {
+            const emi = principal / months;
+            return {
+                emi: Math.round(emi),
+                total: Math.round(principal),
+                interest: 0
+            };
+        }
+
         const r = (annualRate / 100) / 12;
         const pow = Math.pow(1 + r, months);
-        const emi = principal * r * pow / (pow - 1);
-        const total = emi * months;
+        const denominator = pow - 1;
+
+        if (!Number.isFinite(pow) || denominator <= 0) {
+            return { emi: 0, total: 0, interest: 0 };
+        }
+
+        const emiExact = principal * r * pow / denominator;
+        const totalExact = emiExact * months;
+
+        if (!Number.isFinite(emiExact) || !Number.isFinite(totalExact)) {
+            return { emi: 0, total: 0, interest: 0 };
+        }
+
         return {
-            emi: Math.round(emi),
-            total: Math.round(total),
-            interest: Math.round(total - principal)
+            emi: Math.round(emiExact),
+            total: Math.round(totalExact),
+            interest: Math.max(0, Math.round(totalExact - principal))
         };
     }
 };
@@ -4284,7 +4313,7 @@ function attachUserLoansListener(accNo) {
         if (snap.exists()) {
             snap.forEach(child => {
                 const l = child.val() || {};
-                if (String(l.accNo) === String(accNo)) {
+                if (String(l.accNo) === String(accNo) || (activeUser && l.uid && String(l.uid) === String(getFirebaseUid()))) {
                     rows.push(Object.assign({ _key: child.key }, l));
                 }
             });
@@ -4303,7 +4332,7 @@ async function computeLiveCreditScore() {
         if (snap.exists()) {
             snap.forEach(child => {
                 const l = child.val() || {};
-                if (String(l.accNo) === String(activeUser.accNo)) {
+                if (String(l.accNo) === String(activeUser.accNo) || (l.uid && String(l.uid) === String(getFirebaseUid()))) {
                     rows.push(Object.assign({ _key: child.key }, l));
                 }
             });
@@ -4369,35 +4398,72 @@ db.ref('adminSettings/processingFee').on('value', snap => {
     }
 });
 
-/* Interest rates — PERSISTENT. Never overwritten by defaults once Firebase responds. */
+/* Interest rates — loaded once from Firebase, with a safe fallback only when the node is absent. */
+interestRatesLoadPromise = new Promise((resolve, reject) => {
+    interestRatesLoadResolve = resolve;
+    interestRatesLoadReject = reject;
+});
+
 db.ref('adminSettings/interestMatrix').on('value', snap => {
-    let effectiveMatrix;
+    try {
+        let effectiveMatrix = {};
 
-    if (snap.exists()) {
-        const val = snap.val();
-        const clean = {};
-        Object.keys(val).forEach(k => {
-            const num = parseFloat(val[k]);
-            const dur = parseInt(k, 10);
-            if (!isNaN(dur) && dur > 0 && !isNaN(num) && num >= 0) clean[dur] = num;
-        });
-        effectiveMatrix = Object.keys(clean).length ? clean : { ...DEFAULT_INTEREST_MATRIX };
-    } else {
-        effectiveMatrix = { ...DEFAULT_INTEREST_MATRIX };
+        if (snap.exists()) {
+            const val = snap.val() || {};
+            Object.keys(val).forEach(k => {
+                const dur = Number.parseInt(k, 10);
+                const rate = Number.parseFloat(val[k]);
+                if (Number.isInteger(dur) && dur > 0 &&
+                    Number.isFinite(rate) && rate >= 0 && rate <= 60) {
+                    effectiveMatrix[dur] = rate;
+                }
+            });
+        }
+
+        /* Only use defaults when Firebase has no usable matrix. Never write defaults back automatically. */
+        if (!Object.keys(effectiveMatrix).length) {
+            effectiveMatrix = { ...DEFAULT_INTEREST_MATRIX };
+        }
+
+        interestMatrix = effectiveMatrix;
+        interestRatesLoaded = true;
+
+        renderRatesStrip();
+        buildSimTenureOptions();
+        updateProductRates();
+
+        const applicationScreen = document.getElementById('screen-application');
+        if (applicationScreen && !applicationScreen.classList.contains('hidden')) {
+            buildTenureCards();
+            if (appSelectedTenure && interestMatrix[appSelectedTenure] !== undefined) {
+                appSelectedInterest = Number(interestMatrix[appSelectedTenure]);
+            }
+            calcEMI();
+        }
+
+        if (interestRatesLoadResolve) {
+            interestRatesLoadResolve(interestMatrix);
+            interestRatesLoadResolve = null;
+            interestRatesLoadReject = null;
+        }
+    } catch (err) {
+        console.error('Interest matrix processing failed:', err);
+        if (interestRatesLoadReject) {
+            interestRatesLoadReject(err);
+            interestRatesLoadResolve = null;
+            interestRatesLoadReject = null;
+        }
     }
-
-    interestMatrix = effectiveMatrix;
-    interestRatesLoaded = true;
-
+}, err => {
+    console.error('Interest rates read failed:', err);
+    interestRatesLoaded = false;
     renderRatesStrip();
-    buildSimTenureOptions();
-    updateProductRates();
-    if (document.getElementById('tenureContainer') &&
-        document.getElementById('screen-application') &&
-        !document.getElementById('screen-application').classList.contains('hidden')) {
-        buildTenureCards();
+    if (interestRatesLoadReject) {
+        interestRatesLoadReject(err);
+        interestRatesLoadResolve = null;
+        interestRatesLoadReject = null;
     }
-}, err => console.warn('Interest rates read failed:', err));
+});
 
 /* ==========================================================================
    APPLICATION FLOW
@@ -4443,19 +4509,33 @@ function startLoanFlow(type) {
 function buildTenureCards() {
     const container = document.getElementById('tenureContainer');
     if (!container) return;
+
+    if (!interestRatesLoaded) {
+        container.innerHTML = '<div class="text-muted fs-13">Loading interest rates from Firebase…</div>';
+        return;
+    }
+
     container.innerHTML = '';
-    const keys = Object.keys(interestMatrix).map(Number).sort((a, b) => a - b);
+    const keys = Object.keys(interestMatrix)
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+
     if (!keys.length) {
         container.innerHTML = '<div class="text-muted fs-13">No tenure matrix configured.</div>';
         return;
     }
+
     keys.forEach(m => {
+        const rate = Number(interestMatrix[m]);
+        if (!Number.isFinite(rate)) return;
+
         const card = document.createElement('div');
         card.className = 'tenure-card';
         card.dataset.tenure = m;
         card.innerHTML = `
             <div class="tenure-dur">${m}M</div>
-            <div class="tenure-rate">${Number(interestMatrix[m]).toFixed(2)}%</div>
+            <div class="tenure-rate">${rate.toFixed(2)}%</div>
         `;
         card.onclick = () => selectTenure(m, card);
         container.appendChild(card);
@@ -4542,16 +4622,30 @@ function verifyFormPIN() {
 }
 
 function selectTenure(months, cardEl) {
-    appSelectedTenure = months;
-    appSelectedInterest = Number(interestMatrix[months]);
+    if (!interestRatesLoaded) {
+        Util.toast('Interest rates are still loading. Please wait.', 'error');
+        return;
+    }
+
+    const tenure = Number(months);
+    const rate = Number(interestMatrix[tenure]);
+
+    if (!Number.isInteger(tenure) || tenure <= 0 || !Number.isFinite(rate) || rate < 0) {
+        Util.toast('Invalid interest rate for the selected tenure.', 'error');
+        return;
+    }
+
+    appSelectedTenure = tenure;
+    appSelectedInterest = rate;
+
     document.querySelectorAll('.tenure-card').forEach(c => c.classList.remove('selected'));
-    cardEl.classList.add('selected');
+    if (cardEl) cardEl.classList.add('selected');
     calcEMI();
 }
 
 function calcEMI() {
     const amountInput = document.getElementById('appAmount');
-    const amount = parseFloat(amountInput ? amountInput.value : 0) || 0;
+    const amount = Number.parseFloat(amountInput ? amountInput.value : 0) || 0;
 
     const feeEl  = document.getElementById('recFee');
     const feeLbl = document.getElementById('recFeeLabel');
@@ -4561,82 +4655,154 @@ function calcEMI() {
     const prinEl = document.getElementById('recPrincipal');
     const totEl  = document.getElementById('recTotal');
 
-    if (feeEl)  feeEl.innerText  = Util.formatINR(globalProcessingFee);
-    if (feeLbl) feeLbl.innerText = (appFeeMode === 'emi')
+    if (feeEl) feeEl.innerText = Util.formatINR(globalProcessingFee);
+    if (feeLbl) feeLbl.innerText = appFeeMode === 'emi'
         ? 'Processing Fee (Added to EMI)'
         : 'Processing Fee (Payable Upfront)';
 
     const blank = () => {
         if (prinEl) prinEl.innerText = '₹0';
-        if (emiEl)  emiEl.innerText  = '₹0';
-        if (intEl)  intEl.innerText  = '₹0';
-        if (subEl)  subEl.innerText  = '₹0';
-        if (totEl)  totEl.innerText  = '₹0';
+        if (emiEl) emiEl.innerText = '₹0';
+        if (intEl) intEl.innerText = '₹0';
+        if (subEl) subEl.innerText = '₹0';
+        if (totEl) totEl.innerText = '₹0';
     };
 
-    if (isNaN(amount) || amount <= 0 || !appSelectedTenure) {
+    if (!Number.isFinite(amount) || amount <= 0 || !appSelectedTenure ||
+        !interestRatesLoaded || !Number.isFinite(Number(appSelectedInterest))) {
         blank();
-        return { emi: 0, interest: 0, subtotal: 0, gross: 0 };
+        return { emi: 0, interest: 0, subtotal: 0, gross: 0, rate: 0 };
     }
 
-    const base = Util.calcEMI(amount, appSelectedInterest, appSelectedTenure);
+    const rate = Number(appSelectedInterest);
+    const base = Util.calcEMI(amount, rate, appSelectedTenure);
+
+    if (!base.emi || !Number.isFinite(base.total) || !Number.isFinite(base.interest)) {
+        blank();
+        return { emi: 0, interest: 0, subtotal: 0, gross: 0, rate };
+    }
+
+    const processingFee = Math.max(0, Number(globalProcessingFee) || 0);
     const subtotal = base.total;
-    const gross    = subtotal + globalProcessingFee;
-
-    let emi;
-    if (appFeeMode === 'emi') {
-        emi = Math.round(base.emi + (globalProcessingFee / appSelectedTenure));
-    } else {
-        emi = base.emi;
-    }
+    const gross = subtotal + processingFee;
+    const feePerMonth = processingFee / appSelectedTenure;
+    const emi = appFeeMode === 'emi'
+        ? Math.round(base.emi + feePerMonth)
+        : base.emi;
 
     if (prinEl) prinEl.innerText = Util.formatINR(amount);
-    if (emiEl)  emiEl.innerText  = Util.formatINR(emi);
-    if (intEl)  intEl.innerText  = Util.formatINR(base.interest);
-    if (subEl)  subEl.innerText  = Util.formatINR(subtotal);
-    if (totEl)  totEl.innerText  = Util.formatINR(gross);
+    if (emiEl) emiEl.innerText = Util.formatINR(emi);
+    if (intEl) intEl.innerText = Util.formatINR(base.interest);
+    if (subEl) subEl.innerText = Util.formatINR(subtotal);
+    if (totEl) totEl.innerText = Util.formatINR(gross);
 
-    return { emi: emi, interest: base.interest, subtotal: subtotal, gross: gross };
+    return {
+        emi,
+        interest: base.interest,
+        subtotal,
+        gross,
+        rate,
+        principal: amount,
+        tenure: appSelectedTenure,
+        processingFee,
+        feeMode: appFeeMode
+    };
+}
+
+async function waitForInterestRates() {
+    if (interestRatesLoaded) return interestMatrix;
+    if (!interestRatesLoadPromise) {
+        throw new Error('Interest rate service is not initialized.');
+    }
+    return await interestRatesLoadPromise;
+}
+
+function getFirebaseUid() {
+    return (auth.currentUser && auth.currentUser.uid) || '';
 }
 
 async function deploySmartContract() {
     const amountInput = document.getElementById('appAmount');
-    const amount = parseFloat(amountInput.value);
-    if (isNaN(amount) || amount <= 0) { Util.toast('Please enter a valid capital amount.', 'error'); return; }
-    if (!appSelectedTenure) { Util.toast('Please select a tenure matrix.', 'error'); return; }
-    const limit = getCreditLimit();
-    if (amount > limit) { Util.toast('Limit exceeded — maximum ' + Util.formatINR(limit) + '.', 'error'); return; }
+    const amount = Number.parseFloat(amountInput ? amountInput.value : 0);
 
-    const btn = document.getElementById('btnSignContract');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span> Writing…';
-    Util.showLoad('Writing contract to ledger');
+    if (!activeUser) {
+        Util.toast('Session expired. Please sign in again.', 'error');
+        return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+        Util.toast('Please enter a valid capital amount.', 'error');
+        return;
+    }
+
+    try {
+        await waitForInterestRates();
+    } catch (e) {
+        console.error('Interest rate load failed:', e);
+        Util.toast('Could not load interest rates from Firebase. Try again.', 'error');
+        return;
+    }
+
+    if (!appSelectedTenure || !Number.isFinite(Number(interestMatrix[appSelectedTenure]))) {
+        Util.toast('Please select a valid tenure matrix.', 'error');
+        return;
+    }
+
+    /* Re-read the selected rate from the live Firebase-backed matrix before saving. */
+    appSelectedInterest = Number(interestMatrix[appSelectedTenure]);
+
+    const limit = getCreditLimit();
+    if (amount > limit) {
+        Util.toast('Limit exceeded — maximum ' + Util.formatINR(limit) + '.', 'error');
+        return;
+    }
+
+    const uid = getFirebaseUid();
+    if (!uid) {
+        Util.toast('Secure Firebase session not found. Continue with Google and try again.', 'error');
+        return;
+    }
 
     const calcs = calcEMI();
+    if (!calcs.emi || !Number.isFinite(calcs.interest)) {
+        Util.toast('Unable to calculate the contract. Check amount, tenure and interest rate.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btnSignContract');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span> Writing…';
+    }
+    Util.showLoad('Writing contract to ledger');
+
     const loanId = 'LN' + Date.now();
-    const age = parseInt(document.getElementById('appAge').value, 10);
-    const isMinor = !isNaN(age) && age < 18;
+    const age = Number.parseInt(document.getElementById('appAge').value, 10);
+    const isMinor = Number.isFinite(age) && age < 18;
     const nextDate = new Date();
     nextDate.setMonth(nextDate.getMonth() + 1);
     nextDate.setDate(2);
 
     const payload = {
-        loanId, accNo: activeUser.accNo,
+        loanId,
+        uid,
+        accNo: activeUser.accNo,
         name: document.getElementById('appFullName').value.trim(),
-        age, isMinor,
+        age,
+        isMinor,
         phone: document.getElementById('appPhone').value.trim(),
         email: document.getElementById('appEmail').value.trim(),
         address: document.getElementById('appAddress').value.trim(),
         guardianName: isMinor ? document.getElementById('appGuardianName').value.trim() : '',
         guardianEmail: isMinor ? document.getElementById('appGuardianEmail').value.trim() : '',
         guardianPhone: isMinor ? document.getElementById('appGuardianPhone').value.trim() : '',
-        type: appLoanType, amount,
+        type: appLoanType,
+        amount,
         tenure: appSelectedTenure,
         interestRate: appSelectedInterest,
         emi: calcs.emi,
         interestTotal: calcs.interest,
         subtotal: calcs.subtotal,
-        processingFee: globalProcessingFee,
+        processingFee: calcs.processingFee,
         feeMode: appFeeMode,
         totalPayable: calcs.gross,
         status: 'Pending',
@@ -4646,20 +4812,39 @@ async function deploySmartContract() {
         latePayments: 0,
         appliedDate: new Date().toISOString(),
         nextEmiDate: nextDate.toISOString(),
-        creditScoreSnapshot: userCreditScore
+        creditScoreSnapshot: userCreditScore,
+        calculationVersion: 2
     };
 
     try {
-        await db.ref('loans/' + loanId).set(payload);
+        const loanRef = db.ref('loans/' + loanId);
+        await loanRef.set(payload);
+
+        /* Read-after-write verification: prevents a false success if the write did not persist. */
+        const verifySnap = await loanRef.once('value');
+        if (!verifySnap.exists()) {
+            throw new Error('Firebase write returned successfully but the contract could not be verified.');
+        }
+
+        const saved = verifySnap.val() || {};
+        if (Number(saved.interestTotal) !== Number(payload.interestTotal) ||
+            Number(saved.interestRate) !== Number(payload.interestRate) ||
+            Number(saved.tenure) !== Number(payload.tenure)) {
+            throw new Error('Saved contract failed financial-field verification.');
+        }
+
         Util.hideLoad();
         openModal('modal-success');
     } catch (err) {
-        console.error(err);
+        console.error('LOAN SAVE ERROR:', err);
         Util.hideLoad();
-        Util.toast('Routing error — contract not saved.', 'error');
+        const detail = err && (err.message || err.code) ? (err.message || err.code) : 'Unknown Firebase error';
+        Util.toast('Contract was not saved: ' + detail, 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-rounded">draw</span> Sign &amp; Commit';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-rounded">draw</span> Sign &amp; Commit';
+        }
     }
 }
 
@@ -5136,18 +5321,61 @@ function addTenureToDraft() {
     Util.toast(dur + 'M tenure added to draft.', 'success');
 }
 async function saveInterestMatrix() {
+    const uid = getFirebaseUid();
+    if (!uid) {
+        Util.toast('Secure Firebase session not found. Sign in with the authorized Google admin account.', 'error');
+        return;
+    }
+
     const keys = Object.keys(draftMatrix);
-    if (!keys.length) { Util.toast('At least one tenure is required.', 'error'); return; }
+    if (!keys.length) {
+        Util.toast('At least one tenure is required.', 'error');
+        return;
+    }
+
+    const cleanMatrix = {};
+    for (const key of keys) {
+        const tenure = Number.parseInt(key, 10);
+        const rate = Number.parseFloat(draftMatrix[key]);
+        if (!Number.isInteger(tenure) || tenure < 1 || tenure > 60 ||
+            !Number.isFinite(rate) || rate < 0 || rate > 60) {
+            Util.toast('Invalid tenure/rate found in the matrix.', 'error');
+            return;
+        }
+        cleanMatrix[String(tenure)] = rate;
+    }
+
     Util.showLoad('Publishing rate matrix');
     try {
-        await db.ref('adminSettings/interestMatrix').set(draftMatrix);
+        const ref = db.ref('adminSettings/interestMatrix');
+        await ref.set(cleanMatrix);
+
+        const verify = await ref.once('value');
+        if (!verify.exists()) throw new Error('Firebase did not return the saved interest matrix.');
+
+        const saved = verify.val() || {};
+        const savedKeys = Object.keys(saved);
+        for (const key of Object.keys(cleanMatrix)) {
+            if (Number(saved[key]) !== Number(cleanMatrix[key])) {
+                throw new Error('Saved interest matrix failed verification for ' + key + 'M.');
+            }
+        }
+
+        interestMatrix = cleanMatrix;
+        interestRatesLoaded = true;
+        renderRatesStrip();
+        buildTenureCards();
+        buildSimTenureOptions();
+        updateProductRates();
+
         Util.hideLoad();
         closeModal('modal-rates');
-        Util.toast('Interest rate matrix published and saved to Firebase.', 'success');
+        Util.toast('Interest rate matrix published and verified in Firebase.', 'success');
     } catch (err) {
-        console.error(err);
+        console.error('INTEREST MATRIX SAVE ERROR:', err);
         Util.hideLoad();
-        Util.toast('Failed to publish rate matrix.', 'error');
+        const detail = err && (err.message || err.code) ? (err.message || err.code) : 'Unknown Firebase error';
+        Util.toast('Interest matrix was not saved: ' + detail, 'error');
     }
 }
 function renderRatesStrip() {
